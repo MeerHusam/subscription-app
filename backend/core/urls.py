@@ -15,9 +15,22 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from subscriptions.views import health
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from subscriptions.views import health, me
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health),
+    path("api/me/", me),
+    
+    # OpenAPI schema (raw JSON/YAML)
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+
+    # Swagger UI (interactive docs)
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
+    
+    path("api/auth/jwt/create/", TokenObtainPairView.as_view(), name="jwt-create"),
+    path("api/auth/jwt/refresh/", TokenRefreshView.as_view(), name="jwt-refresh"),
+
 ]

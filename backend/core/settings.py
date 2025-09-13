@@ -54,6 +54,8 @@ INSTALLED_APPS = [
 
     # Local
     "subscriptions",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # serves swagger assets
 
 ]
 
@@ -75,6 +77,35 @@ TIME_ZONE = "Asia/Riyadh"
 USE_TZ = True
 
 ROOT_URLCONF = "core.urls"
+
+REST_FRAMEWORK = {
+     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # Optional: keep this to use the DRF browsable API while logged in via session
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+     
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Aajil Subscription API",
+    "DESCRIPTION": "API for subscriptions, reminders, and auth",
+    "VERSION": "0.1.0",
+}
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "COMPONENTS": {
+        "securitySchemes": {
+            "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+        }
+    },
+    "SECURITY": [{"BearerAuth": []}],
+}
 
 TEMPLATES = [
     {

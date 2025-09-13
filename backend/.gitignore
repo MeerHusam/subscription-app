@@ -1,0 +1,52 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+
+# Comment out if you want migrations tracked
+*/migrations/__pycache__/
+*/migrations/*.py
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+*.env
+
+# Coverage/test reports
+.coverage
+htmlcov/
+*.cover
+
+# Pip / dependency management
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Cache
+.cache/
+.pytest_cache/

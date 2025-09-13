@@ -70,6 +70,12 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+AUTHENTICATION_BACKENDS = [
+    "core.auth_backends.EmailOrUsernameModelBackend",
+    "django.contrib.auth.backends.ModelBackend",  # keep default as fallback
+]
+
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]

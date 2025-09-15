@@ -43,6 +43,10 @@ export const updateSubscription = (
     body: JSON.stringify(payload),
   });
 
+// subscription details
+export const getSubscriptionDetails = (id: number) =>
+  api(`/subscriptions/${id}/`, { method: "GET" });
+
 // delete
 export const deleteSubscription = (id: number) =>
   api(`/subscriptions/${id}/`, { method: "DELETE" });

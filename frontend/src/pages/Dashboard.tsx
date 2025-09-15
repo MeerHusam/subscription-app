@@ -1,15 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Plus,
-  DollarSign,
-  Calendar,
-  TrendingUp,
-  Eye,
-  EyeOff,
-  Edit2,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Plus, DollarSign, Calendar, TrendingUp, X } from "lucide-react";
 
 import {
   listSubscriptions,
@@ -17,12 +7,14 @@ import {
   updateSubscription,
   deleteSubscription,
   getSubscriptionStats,
+  getSubscriptionDetails,
   type Subscription,
   type BillingCycle,
   type IntervalUnit,
 } from "../api/subscriptions";
 
 import Layout from "../components/Layout";
+import SubscriptionDetailPopup from "../components/SubscriptionDetailPopup";
 
 type FormState = {
   service_name: string;
@@ -92,17 +84,31 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [includeInactive, setIncludeInactive] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  // Detail popup state
+  const [selectedSubscription, setSelectedSubscription] =
+    useState<Subscription | null>(null);
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const activeSubscriptions = useMemo(
+    () => items.filter((s) => s.is_active),
+    [items]
+  );
+  const inactiveSubscriptions = useMemo(
+    () => items.filter((s) => !s.is_active),
+    [items]
+  );
 
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
       const [list, s] = await Promise.all([
-        listSubscriptions({ include_inactive: includeInactive }),
-        getSubscriptionStats({ include_inactive: includeInactive }),
+        listSubscriptions({ include_inactive: true }),
+        getSubscriptionStats({ include_inactive: false }),
       ]);
       setItems(list);
       setStats(s);
@@ -115,7 +121,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     refresh();
-  }, [includeInactive]);
+  }, []);
 
   const cycleIsCustom = form.billing_cycle === "custom";
   const categoryIsCustom = form.category === "custom";
@@ -135,7 +141,6 @@ export default function Dashboard() {
   async function onSubmit(e: any) {
     e.preventDefault();
     if (!canSubmit) return;
-
     setSubmitting(true);
     setError(null);
 
@@ -157,11 +162,8 @@ export default function Dashboard() {
         }),
       };
 
-      if (editingId) {
-        await updateSubscription(editingId, payload);
-      } else {
-        await createSubscription(payload);
-      }
+      if (editingId) await updateSubscription(editingId, payload);
+      else await createSubscription(payload);
 
       setForm({ ...emptyForm });
       setShowForm(false);
@@ -174,14 +176,29 @@ export default function Dashboard() {
     }
   }
 
-  async function onToggleActive(subscription: any) {
+  // Quick list actions
+  async function cancelSubscriptionAction(subscription: Subscription) {
     try {
-      await updateSubscription(subscription.id, {
-        is_active: !subscription.is_active,
-      });
+      await updateSubscription(subscription.id, { is_active: false });
       await refresh();
+      // If popup is open for the same sub, mirror state change immediately
+      if (selectedSubscription?.id === subscription.id) {
+        setSelectedSubscription({ ...selectedSubscription, is_active: false });
+      }
     } catch (e: any) {
-      setError(e?.message || "Update failed");
+      setError(e?.message || "Failed to cancel subscription");
+    }
+  }
+
+  async function reactivateSubscriptionAction(subscription: Subscription) {
+    try {
+      await updateSubscription(subscription.id, { is_active: true });
+      await refresh();
+      if (selectedSubscription?.id === subscription.id) {
+        setSelectedSubscription({ ...selectedSubscription, is_active: true });
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to reactivate subscription");
     }
   }
 
@@ -195,14 +212,15 @@ export default function Dashboard() {
     }
   }
 
-  function onEdit(subscription: any) {
+  // Form prefill for full edit
+  function onEdit(subscription: Subscription) {
     setForm({
       service_name: subscription.service_name,
       cost: subscription.cost.toString(),
       billing_cycle: subscription.billing_cycle,
-      custom_interval_unit: subscription.custom_interval_unit || "",
+      custom_interval_unit: (subscription as any).custom_interval_unit || "",
       custom_interval_value:
-        subscription.custom_interval_value?.toString() || "",
+        (subscription as any).custom_interval_value?.toString() || "",
       start_date: subscription.start_date,
       is_active: subscription.is_active,
       category: subscription.category,
@@ -224,16 +242,68 @@ export default function Dashboard() {
     category: string | null,
     customCategory?: string | null
   ) {
-    // Handle null category
     if (!category) return "Unknown";
-
     if (category === "custom" && customCategory) return `⚙️ ${customCategory}`;
     const cat = categories.find((c) => c.value === category);
     return cat ? cat.label : category;
   }
 
-  const nextRenewals = items
-    .filter((s) => s.is_active)
+  // DETAILS POPUP: open + fetch fresh details
+  const handleShowDetails = async (subscription: Subscription) => {
+    setLoadingDetails(true);
+    setShowDetailPopup(true);
+    setSelectedSubscription(subscription); // show basic immediately
+    try {
+      const detailed = await getSubscriptionDetails(subscription.id);
+      setSelectedSubscription(detailed);
+    } catch (error: any) {
+      console.error("Failed to fetch subscription details:", error);
+      setError(error?.message || "Failed to load subscription details");
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleCloseDetails = () => {
+    setShowDetailPopup(false);
+    setSelectedSubscription(null);
+  };
+
+  // ✅ NEW: Toggle active from inside the popup
+  const handleToggleActiveInPopup = async () => {
+    if (!selectedSubscription) return;
+    try {
+      const newIsActive = !selectedSubscription.is_active;
+      await updateSubscription(selectedSubscription.id, {
+        is_active: newIsActive,
+      });
+      // reflect immediately in popup
+      setSelectedSubscription({
+        ...selectedSubscription,
+        is_active: newIsActive,
+      });
+      // refresh lists/stats
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Update failed");
+    }
+  };
+
+  // ✅ NEW: Delete from inside the popup
+  const handleDeleteInPopup = async () => {
+    if (!selectedSubscription) return;
+    if (!confirm("Are you sure you want to delete this subscription?")) return;
+    try {
+      await deleteSubscription(selectedSubscription.id);
+      await refresh();
+      handleCloseDetails();
+    } catch (e: any) {
+      setError(e?.message || "Delete failed");
+    }
+  };
+
+  const nextRenewals = activeSubscriptions
+    .slice()
     .sort(
       (a, b) =>
         new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime()
@@ -242,9 +312,7 @@ export default function Dashboard() {
 
   return (
     <Layout title="Subscriptions">
-      {/* Remove the outer div with background and min-h-screen */}
       <div className="max-w-7xl mx-auto p-6">
-        {/* Your existing content starting from the header div */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -258,17 +326,6 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIncludeInactive(!includeInactive)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                includeInactive
-                  ? "bg-blue-50 border-blue-200 text-blue-700"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {includeInactive ? <Eye size={16} /> : <EyeOff size={16} />}
-              {includeInactive ? "Hide Inactive" : "Show Inactive"}
-            </button>
             <button
               onClick={() => {
                 setShowForm(true);
@@ -328,12 +385,12 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Subscriptions List */}
+          {/* Active Subscriptions List */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg border border-gray-100">
               <div className="p-6 border-b border-gray-100">
                 <h2 className="text-xl font-semibold text-gray-800">
-                  Your Subscriptions
+                  Your Subscriptions ({activeSubscriptions.length})
                 </h2>
               </div>
               <div className="p-6">
@@ -341,20 +398,24 @@ export default function Dashboard() {
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
-                ) : items.length === 0 ? (
+                ) : activeSubscriptions.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-gray-400 mb-4">📊</div>
-                    <p className="text-gray-500">No subscriptions found</p>
+                    <p className="text-gray-500">
+                      No active subscriptions found
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {items.map((item) => (
+                    {activeSubscriptions.map((item) => (
                       <SubscriptionCard
                         key={item.id}
                         subscription={item}
-                        onToggleActive={() => onToggleActive(item)}
-                        onEdit={() => onEdit(item)}
+                        onShowDetails={() => handleShowDetails(item)}
+                        onCancel={() => cancelSubscriptionAction(item)}
+                        onReactivate={() => reactivateSubscriptionAction(item)}
                         onDelete={() => onDelete(item.id)}
+                        onEdit={() => onEdit(item)}
                         getCategoryStyle={getCategoryStyle}
                         getCategoryLabel={getCategoryLabel}
                       />
@@ -364,6 +425,20 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {/* Popup Component */}
+          {showDetailPopup && selectedSubscription && (
+            <SubscriptionDetailPopup
+              subscription={selectedSubscription}
+              onClose={handleCloseDetails}
+              getCategoryStyle={getCategoryStyle}
+              getCategoryLabel={getCategoryLabel}
+              onEdit={() => onEdit(selectedSubscription)}
+              // ✅ pass handlers for inside-popup actions
+              onToggleActive={handleToggleActiveInPopup}
+              onDelete={handleDeleteInPopup}
+            />
+          )}
 
           {/* Sidebar */}
           <div className="space-y-6">
@@ -412,8 +487,8 @@ export default function Dashboard() {
               <div className="p-6">
                 <div className="space-y-2">
                   {categories.slice(0, 5).map((cat) => {
-                    const count = items.filter(
-                      (item) => item.category === cat.value && item.is_active
+                    const count = activeSubscriptions.filter(
+                      (i) => i.category === cat.value
                     ).length;
                     if (count === 0) return null;
                     return (
@@ -437,11 +512,41 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Past Subscriptions Section */}
+        {inactiveSubscriptions.length > 0 && (
+          <div className="mt-8">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Past Subscriptions ({inactiveSubscriptions.length})
+                </h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  {inactiveSubscriptions.map((item) => (
+                    <SubscriptionCard
+                      key={item.id}
+                      subscription={item}
+                      onShowDetails={() => handleShowDetails(item)}
+                      onCancel={() => cancelSubscriptionAction(item)}
+                      onReactivate={() => reactivateSubscriptionAction(item)}
+                      onDelete={() => onDelete(item.id)}
+                      onEdit={() => onEdit(item)}
+                      getCategoryStyle={getCategoryStyle}
+                      getCategoryLabel={getCategoryLabel}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100">
               <div className="flex items-center justify-between">
@@ -680,6 +785,7 @@ export default function Dashboard() {
     </Layout>
   );
 }
+
 type StatCardProps = {
   icon: React.ReactNode;
   label: string;
@@ -702,7 +808,7 @@ function StatCard({ icon, label, value, trend, gradient = "" }: StatCardProps) {
       <div className="space-y-1">
         <div className="text-2xl font-bold text-gray-900">{value}</div>
         <div className="text-sm text-gray-600">{label}</div>
-        <div className="text-xs text-gray-400">{trend}</div>
+        {trend && <div className="text-xs text-gray-400">{trend}</div>}
       </div>
     </div>
   );
@@ -710,16 +816,20 @@ function StatCard({ icon, label, value, trend, gradient = "" }: StatCardProps) {
 
 function SubscriptionCard({
   subscription,
-  onToggleActive,
-  onEdit,
+  onShowDetails,
+  onCancel,
+  onReactivate,
   onDelete,
+  onEdit,
   getCategoryStyle,
   getCategoryLabel,
 }: {
   subscription: Subscription;
-  onToggleActive: () => void;
-  onEdit: () => void;
+  onShowDetails: () => void;
+  onCancel: () => void;
+  onReactivate: () => void;
   onDelete: () => void;
+  onEdit: () => void;
   getCategoryStyle: (category: string) => string;
   getCategoryLabel: (
     category: string | null,
@@ -767,7 +877,11 @@ function SubscriptionCard({
                 SR{Number(subscription.cost).toFixed(2)}
               </span>
               <span>•</span>
-              <span className="capitalize">{subscription.billing_cycle}</span>
+              <span className="capitalize">
+                {subscription.billing_cycle === "custom"
+                  ? "Custom"
+                  : subscription.billing_cycle}
+              </span>
               {isActive && (
                 <>
                   <span>•</span>
@@ -787,30 +901,29 @@ function SubscriptionCard({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* {isActive ? (
+            <button
+              onClick={onCancel}
+              className="px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
+              title="Mark as inactive"
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              onClick={onReactivate}
+              className="px-3 py-2 text-sm bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
+              title="Mark as active"
+            >
+              Reactivate
+            </button>
+          )} */}
+
           <button
-            onClick={onToggleActive}
-            className={`p-2 rounded-lg transition-colors ${
-              isActive
-                ? "text-green-600 bg-green-50 hover:bg-green-100"
-                : "text-gray-400 bg-gray-100 hover:bg-gray-200"
-            }`}
-            title={isActive ? "Deactivate" : "Activate"}
+            onClick={onShowDetails}
+            className="px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
           >
-            {isActive ? "✓" : "○"}
-          </button>
-          <button
-            onClick={onEdit}
-            className="p-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            title="Edit"
-          >
-            <Edit2 size={14} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={14} />
+            Manage
           </button>
         </div>
       </div>

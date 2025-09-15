@@ -1,36 +1,819 @@
-import { useEffect, useState } from "react";
-import { me } from "../api/auth";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  Eye,
+  EyeOff,
+  Edit2,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import {
+  listSubscriptions,
+  createSubscription,
+  updateSubscription,
+  deleteSubscription,
+  getSubscriptionStats,
+  type Subscription,
+  type BillingCycle,
+  type IntervalUnit,
+} from "../api/subscriptions";
+
+import Layout from "../components/Layout";
+
+type FormState = {
+  service_name: string;
+  cost: string; // keep as string for input
+  billing_cycle: BillingCycle;
+  custom_interval_unit: IntervalUnit | "";
+  custom_interval_value: string;
+  start_date: string; // YYYY-MM-DD
+  is_active: boolean;
+  category: string;
+  custom_category: string;
+  has_free_trial: boolean;
+  trial_end_date: string; // YYYY-MM-DD
+  notes: string;
+};
+
+const emptyForm: FormState = {
+  service_name: "",
+  cost: "",
+  billing_cycle: "monthly",
+  custom_interval_unit: "",
+  custom_interval_value: "",
+  start_date: "",
+  is_active: true,
+  category: "streaming",
+  custom_category: "",
+  has_free_trial: false,
+  trial_end_date: "",
+  notes: "",
+};
+
+const categories = [
+  {
+    value: "streaming",
+    label: "🎬 Streaming",
+    color: "bg-purple-100 text-purple-800",
+  },
+  {
+    value: "productivity",
+    label: "💼 Productivity",
+    color: "bg-blue-100 text-blue-800",
+  },
+  { value: "gaming", label: "🎮 Gaming", color: "bg-green-100 text-green-800" },
+  { value: "cloud", label: "☁️ Cloud/Dev", color: "bg-gray-100 text-gray-800" },
+  {
+    value: "education",
+    label: "📚 Education",
+    color: "bg-yellow-100 text-yellow-800",
+  },
+  { value: "fitness", label: "💪 Fitness", color: "bg-red-100 text-red-800" },
+  {
+    value: "finance",
+    label: "💰 Finance",
+    color: "bg-emerald-100 text-emerald-800",
+  },
+  {
+    value: "custom",
+    label: "⚙️ Custom",
+    color: "bg-orange-100 text-orange-800",
+  },
+];
 
 export default function Dashboard() {
-  const [profile, setProfile] = useState<any>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [items, setItems] = useState<Subscription[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [form, setForm] = useState<FormState>({ ...emptyForm });
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [includeInactive, setIncludeInactive] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await me();
-        setProfile(data);
-      } catch {
-        setErr("Failed to load profile");
-      }
-    })();
-  }, []);
-
-  function logout() {
-    localStorage.removeItem("access_token");
-    window.location.href = "/login";
+  async function refresh() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [list, s] = await Promise.all([
+        listSubscriptions({ include_inactive: includeInactive }),
+        getSubscriptionStats({ include_inactive: includeInactive }),
+      ]);
+      setItems(list);
+      setStats(s);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  if (err) return <div style={{ padding: 16 }}>{err}</div>;
-  if (!profile) return <div style={{ padding: 16 }}>Loading…</div>;
+  useEffect(() => {
+    refresh();
+  }, [includeInactive]);
+
+  const cycleIsCustom = form.billing_cycle === "custom";
+  const categoryIsCustom = form.category === "custom";
+
+  const canSubmit = useMemo(() => {
+    if (!form.service_name || !form.cost || !form.start_date) return false;
+    if (
+      cycleIsCustom &&
+      (!form.custom_interval_unit || !form.custom_interval_value)
+    )
+      return false;
+    if (form.has_free_trial && !form.trial_end_date) return false;
+    if (categoryIsCustom && !form.custom_category.trim()) return false;
+    return true;
+  }, [form, cycleIsCustom, categoryIsCustom]);
+
+  async function onSubmit(e: any) {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const payload: any = {
+        service_name: form.service_name,
+        cost: Number(form.cost),
+        billing_cycle: form.billing_cycle,
+        start_date: form.start_date,
+        is_active: form.is_active,
+        category: form.category,
+        custom_category: categoryIsCustom ? form.custom_category : "",
+        has_free_trial: form.has_free_trial,
+        trial_end_date: form.has_free_trial ? form.trial_end_date : null,
+        notes: form.notes || "",
+        ...(cycleIsCustom && {
+          custom_interval_unit: form.custom_interval_unit,
+          custom_interval_value: Number(form.custom_interval_value),
+        }),
+      };
+
+      if (editingId) {
+        await updateSubscription(editingId, payload);
+      } else {
+        await createSubscription(payload);
+      }
+
+      setForm({ ...emptyForm });
+      setShowForm(false);
+      setEditingId(null);
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Operation failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onToggleActive(subscription: any) {
+    try {
+      await updateSubscription(subscription.id, {
+        is_active: !subscription.is_active,
+      });
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Update failed");
+    }
+  }
+
+  async function onDelete(id: number) {
+    if (!confirm("Delete this subscription?")) return;
+    try {
+      await deleteSubscription(id);
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Delete failed");
+    }
+  }
+
+  function onEdit(subscription: any) {
+    setForm({
+      service_name: subscription.service_name,
+      cost: subscription.cost.toString(),
+      billing_cycle: subscription.billing_cycle,
+      custom_interval_unit: subscription.custom_interval_unit || "",
+      custom_interval_value:
+        subscription.custom_interval_value?.toString() || "",
+      start_date: subscription.start_date,
+      is_active: subscription.is_active,
+      category: subscription.category,
+      custom_category: subscription.custom_category || "",
+      has_free_trial: subscription.has_free_trial,
+      trial_end_date: subscription.trial_end_date || "",
+      notes: subscription.notes || "",
+    });
+    setEditingId(subscription.id);
+    setShowForm(true);
+  }
+
+  function getCategoryStyle(category: string) {
+    const cat = categories.find((c) => c.value === category);
+    return cat ? cat.color : "bg-gray-100 text-gray-800";
+  }
+
+  function getCategoryLabel(
+    category: string | null,
+    customCategory?: string | null
+  ) {
+    // Handle null category
+    if (!category) return "Unknown";
+
+    if (category === "custom" && customCategory) return `⚙️ ${customCategory}`;
+    const cat = categories.find((c) => c.value === category);
+    return cat ? cat.label : category;
+  }
+
+  const nextRenewals = items
+    .filter((s) => s.is_active)
+    .sort(
+      (a, b) =>
+        new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime()
+    )
+    .slice(0, 3);
 
   return (
-    <div style={{ padding: 16 }}>
-      <h1>Dashboard</h1>
-      <p>
-        Welcome, <b>{profile?.username || profile?.email}</b>
-      </p>
-      <button onClick={logout}>Logout</button>
+    <Layout title="Subscriptions">
+      {/* Remove the outer div with background and min-h-screen */}
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Your existing content starting from the header div */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Dashboard
+              </h1>
+              <p className="text-gray-600">
+                Welcome back, manage your subscriptions and finances
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIncludeInactive(!includeInactive)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                includeInactive
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {includeInactive ? <Eye size={16} /> : <EyeOff size={16} />}
+              {includeInactive ? "Hide Inactive" : "Show Inactive"}
+            </button>
+            <button
+              onClick={() => {
+                setShowForm(true);
+                setEditingId(null);
+                setForm({ ...emptyForm });
+              }}
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+            >
+              <Plus size={16} />
+              Add Subscription
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              icon={<DollarSign className="text-green-600" size={24} />}
+              label="Monthly Total"
+              value={`SR${stats.normalized_monthly_total}`}
+              trend="+xx% vs last month"
+              gradient="from-green-400 to-emerald-500"
+            />
+            <StatCard
+              icon={<TrendingUp className="text-blue-600" size={24} />}
+              label="Active Subscriptions"
+              value={stats.total_subscriptions}
+              trend={`${stats.monthly_subscriptions} monthly, ${
+                stats.yearly_subscriptions
+              } yearly, ${
+                stats.total_subscriptions -
+                (stats.monthly_subscriptions + stats.yearly_subscriptions)
+              } custom`}
+              gradient="from-blue-400 to-cyan-500"
+            />
+            <StatCard
+              icon={<Calendar className="text-purple-600" size={24} />}
+              label="Next Renewal"
+              value={
+                nextRenewals[0]
+                  ? new Date(nextRenewals[0].renewal_date).toLocaleDateString()
+                  : "None"
+              }
+              trend={nextRenewals[0]?.service_name || "No active subscriptions"}
+              gradient="from-purple-400 to-pink-500"
+            />
+            <StatCard
+              icon={<DollarSign className="text-orange-600" size={24} />}
+              label="Yearly Savings"
+              value="SRxx"
+              trend="vs monthly billing"
+              gradient="from-orange-400 to-red-500"
+            />
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Subscriptions List */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Your Subscriptions
+                </h2>
+              </div>
+              <div className="p-6">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : items.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">📊</div>
+                    <p className="text-gray-500">No subscriptions found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {items.map((item) => (
+                      <SubscriptionCard
+                        key={item.id}
+                        subscription={item}
+                        onToggleActive={() => onToggleActive(item)}
+                        onEdit={() => onEdit(item)}
+                        onDelete={() => onDelete(item.id)}
+                        getCategoryStyle={getCategoryStyle}
+                        getCategoryLabel={getCategoryLabel}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Upcoming Renewals */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Upcoming Renewals
+                </h3>
+              </div>
+              <div className="p-6">
+                {nextRenewals.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No upcoming renewals</p>
+                ) : (
+                  <div className="space-y-3">
+                    {nextRenewals.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div>
+                          <div className="font-medium text-sm">
+                            {item.service_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(item.renewal_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          SR{Number(item.cost).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Category Breakdown */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Categories
+                </h3>
+              </div>
+              <div className="p-6">
+                <div className="space-y-2">
+                  {categories.slice(0, 5).map((cat) => {
+                    const count = items.filter(
+                      (item) => item.category === cat.value && item.is_active
+                    ).length;
+                    if (count === 0) return null;
+                    return (
+                      <div
+                        key={cat.value}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-sm text-gray-600">
+                          {cat.label}
+                        </span>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${cat.color}`}
+                        >
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {editingId ? "Edit Subscription" : "Add Subscription"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingId(null);
+                    setForm({ ...emptyForm });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={onSubmit} className="p-6 space-y-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Service Name
+                </label>
+                <input
+                  type="text"
+                  value={form.service_name}
+                  onChange={(e) =>
+                    setForm({ ...form, service_name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g. Netflix, Spotify..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cost
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.cost}
+                    onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Billing Cycle
+                  </label>
+                  <select
+                    value={form.billing_cycle}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        billing_cycle: e.target.value as BillingCycle,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+              </div>
+
+              {cycleIsCustom && (
+                <div className="grid grid-cols-2 gap-4">
+                  <select
+                    value={form.custom_interval_unit || "months"}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        custom_interval_unit: e.target.value as IntervalUnit,
+                      })
+                    }
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="months">Months</option>
+                    <option value="days">Days</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Interval"
+                    value={form.custom_interval_value}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        custom_interval_value: e.target.value,
+                      })
+                    }
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={form.start_date}
+                    onChange={(e) =>
+                      setForm({ ...form, start_date: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={form.category}
+                    onChange={(e) =>
+                      setForm({ ...form, category: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {categoryIsCustom && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Custom Category
+                  </label>
+                  <input
+                    type="text"
+                    value={form.custom_category}
+                    onChange={(e) =>
+                      setForm({ ...form, custom_category: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter custom category"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.has_free_trial}
+                  onChange={(e) =>
+                    setForm({ ...form, has_free_trial: e.target.checked })
+                  }
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label className="text-sm text-gray-700">Has free trial</label>
+              </div>
+
+              {form.has_free_trial && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Trial End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={form.trial_end_date}
+                    onChange={(e) =>
+                      setForm({ ...form, trial_end_date: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Optional notes..."
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(e) =>
+                    setForm({ ...form, is_active: e.target.checked })
+                  }
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label className="text-sm text-gray-700">Active</label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingId(null);
+                    setForm({ ...emptyForm });
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSubmit || submitting}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? "Saving..." : editingId ? "Update" : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+}
+type StatCardProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  trend?: string;
+  gradient?: string;
+};
+
+function StatCard({ icon, label, value, trend, gradient = "" }: StatCardProps) {
+  return (
+    <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
+      <div className="flex items-center justify-between mb-4">
+        <div
+          className={`p-3 rounded-lg bg-gradient-to-r ${gradient} bg-opacity-10`}
+        >
+          {icon}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
+        <div className="text-sm text-gray-600">{label}</div>
+        <div className="text-xs text-gray-400">{trend}</div>
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionCard({
+  subscription,
+  onToggleActive,
+  onEdit,
+  onDelete,
+  getCategoryStyle,
+  getCategoryLabel,
+}: {
+  subscription: Subscription;
+  onToggleActive: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  getCategoryStyle: (category: string) => string;
+  getCategoryLabel: (
+    category: string | null,
+    customCategory?: string | null
+  ) => string;
+}) {
+  const isActive = subscription.is_active;
+  const renewalDate = new Date(subscription.renewal_date);
+  const daysUntilRenewal = Math.ceil(
+    (renewalDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return (
+    <div
+      className={`p-4 rounded-lg border transition-all hover:shadow-md ${
+        isActive
+          ? "bg-white border-gray-200"
+          : "bg-gray-50 border-gray-100 opacity-75"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 flex-1">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h3
+                className={`font-semibold ${
+                  isActive ? "text-gray-900" : "text-gray-500"
+                }`}
+              >
+                {subscription.service_name}
+              </h3>
+              <span
+                className={`px-2 py-1 text-xs rounded-full ${getCategoryStyle(
+                  subscription.category
+                )}`}
+              >
+                {getCategoryLabel(
+                  subscription.category,
+                  subscription.custom_category
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span className="font-medium text-gray-900">
+                SR{Number(subscription.cost).toFixed(2)}
+              </span>
+              <span>•</span>
+              <span className="capitalize">{subscription.billing_cycle}</span>
+              {isActive && (
+                <>
+                  <span>•</span>
+                  <span
+                    className={
+                      daysUntilRenewal <= 7 ? "text-orange-600 font-medium" : ""
+                    }
+                  >
+                    {daysUntilRenewal > 0
+                      ? `${daysUntilRenewal} days until renewal`
+                      : "Renewal overdue"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleActive}
+            className={`p-2 rounded-lg transition-colors ${
+              isActive
+                ? "text-green-600 bg-green-50 hover:bg-green-100"
+                : "text-gray-400 bg-gray-100 hover:bg-gray-200"
+            }`}
+            title={isActive ? "Deactivate" : "Activate"}
+          >
+            {isActive ? "✓" : "○"}
+          </button>
+          <button
+            onClick={onEdit}
+            className="p-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            title="Edit"
+          >
+            <Edit2 size={14} />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+            title="Delete"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

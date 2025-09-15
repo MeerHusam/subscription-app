@@ -72,10 +72,13 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsOwner]
 
     def get_queryset(self):
-        # Only includes active subscriptions
-        qs = Subscription.objects.filter(owner=self.request.user, is_active=True)
-        if self.request.query_params.get("include_inactive") == "1":
-            qs = Subscription.objects.filter(owner=self.request.user)
+        # Include ALL user's subscriptions by default
+        qs = Subscription.objects.filter(owner=self.request.user)
+        
+        # Only show active ones if specifically requested
+        if self.request.query_params.get("active_only") == "1":
+            qs = qs.filter(is_active=True)
+        
         return qs
 
     def perform_create(self, serializer):
@@ -85,7 +88,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         # By default this is only the active subscriptions. Change it in get_queryset()
         # Pass ?include_inactive=1 to include inactive too 
-        subscriptions = self.get_queryset()
+        # subscriptions = self.get_queryset()
+        
+        subscriptions = Subscription.objects.filter(owner=self.request.user, is_active=True)
 
         #  Counts (efficient aggregation)
         counts = subscriptions.aggregate(

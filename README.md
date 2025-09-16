@@ -71,14 +71,7 @@ pip install -r requirements.txt
 ```
 
 Create **`backend/.env`** (minimal example):
-
-```
-DEBUG=True
-SECRET_KEY=dev-secret-change-me
-ALLOWED_HOSTS=localhost,127.0.0.1
-# If using CORS:
-CORS_ALLOWED_ORIGINS=http://localhost:5173
-```
+The content will be sent in the email
 
 Migrate and start the server:
 

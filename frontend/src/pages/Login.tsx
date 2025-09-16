@@ -20,7 +20,7 @@ export default function Login() {
       localStorage.setItem("access_token", res.access);
       navigate("/", { replace: true });
     } catch (e) {
-      setErr("Login failed. Try username: 'demo', password: 'demo'");
+      setErr("Login failed. Try username: 'demo', password: 'demo1234'");
     } finally {
       setLoading(false);
     }

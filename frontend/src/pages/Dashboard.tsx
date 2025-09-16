@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, DollarSign, Calendar, TrendingUp, X } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 import {
   listSubscriptions,
@@ -101,6 +114,86 @@ export default function Dashboard() {
     () => items.filter((s) => !s.is_active),
     [items]
   );
+
+  // Calculate normalized monthly cost for a subscription
+  const getNormalizedMonthlyCost = (subscription: Subscription) => {
+    const cost = Number(subscription.cost);
+    switch (subscription.billing_cycle) {
+      case "monthly":
+        return cost;
+      case "yearly":
+        return cost / 12;
+      case "custom":
+        // Assuming we have custom_interval_unit and custom_interval_value
+        const intervalValue = (subscription as any).custom_interval_value || 1;
+        const intervalUnit =
+          (subscription as any).custom_interval_unit || "months";
+        if (intervalUnit === "months") {
+          return cost / intervalValue;
+        } else if (intervalUnit === "days") {
+          return (cost / intervalValue) * 30.44; // Average days per month
+        }
+        return cost;
+      default:
+        return cost;
+    }
+  };
+
+  // Calculate pie chart data for billing cycles
+  const billingCycleData = useMemo(() => {
+    const monthly = activeSubscriptions.filter(
+      (s) => s.billing_cycle === "monthly"
+    ).length;
+    const yearly = activeSubscriptions.filter(
+      (s) => s.billing_cycle === "yearly"
+    ).length;
+    const custom = activeSubscriptions.filter(
+      (s) => s.billing_cycle === "custom"
+    ).length;
+
+    return [
+      { name: "Monthly", value: monthly, color: "#3B82F6" },
+      { name: "Yearly", value: yearly, color: "#10B981" },
+      { name: "Custom", value: custom, color: "#F59E0B" },
+    ].filter((item) => item.value > 0);
+  }, [activeSubscriptions]);
+
+  // Calculate category data for bar chart
+  const categoryData = useMemo(() => {
+    const categoryMap = new Map();
+
+    activeSubscriptions.forEach((sub) => {
+      const categoryKey =
+        sub.category === "custom" && sub.custom_category
+          ? sub.custom_category
+          : sub.category;
+
+      if (categoryMap.has(categoryKey)) {
+        categoryMap.set(categoryKey, categoryMap.get(categoryKey) + 1);
+      } else {
+        categoryMap.set(categoryKey, 1);
+      }
+    });
+
+    return Array.from(categoryMap.entries())
+      .map(([category, count]) => ({
+        category: category.charAt(0).toUpperCase() + category.slice(1),
+        count,
+        color: categories.find((c) => c.value === category)?.color || "#6B7280",
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [activeSubscriptions]);
+
+  // Get most expensive subscriptions (normalized to monthly)
+  const mostExpensiveSubscriptions = useMemo(() => {
+    return activeSubscriptions
+      .map((sub) => ({
+        ...sub,
+        normalizedMonthlyCost: getNormalizedMonthlyCost(sub),
+      }))
+      .sort((a, b) => b.normalizedMonthlyCost - a.normalizedMonthlyCost)
+      .slice(0, 3);
+  }, [activeSubscriptions]);
 
   async function refresh() {
     setLoading(true);
@@ -314,15 +407,11 @@ export default function Dashboard() {
     <Layout title="Subscriptions">
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Dashboard
-              </h1>
-              <p className="text-gray-600">
-                Welcome back, manage your subscriptions and finances
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+            <p className="text-gray-600">
+              Welcome back, manage your subscriptions and finances
+            </p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -347,7 +436,7 @@ export default function Dashboard() {
               icon={<DollarSign className="text-green-600" size={24} />}
               label="Monthly Total"
               value={`SR${stats.normalized_monthly_total}`}
-              trend="+xx% vs last month"
+              trend="+-% vs last month"
               gradient="from-green-400 to-emerald-500"
             />
             <StatCard
@@ -376,12 +465,79 @@ export default function Dashboard() {
             <StatCard
               icon={<DollarSign className="text-orange-600" size={24} />}
               label="Yearly Savings"
-              value="SRxx"
+              value="SR-"
               trend="vs monthly billing"
               gradient="from-orange-400 to-red-500"
             />
           </div>
         )}
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Billing Cycle Distribution Pie Chart */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Billing Cycle Distribution
+            </h3>
+            {billingCycleData.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={billingCycleData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, value, percent }) =>
+                        `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                      }
+                    >
+                      {billingCycleData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                No active subscriptions
+              </div>
+            )}
+          </div>
+
+          {/* Category Distribution Bar Chart */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Subscriptions by Category
+            </h3>
+            {categoryData.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={categoryData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="category"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      fontSize={12}
+                    />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                No active subscriptions
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -434,7 +590,6 @@ export default function Dashboard() {
               getCategoryStyle={getCategoryStyle}
               getCategoryLabel={getCategoryLabel}
               onEdit={() => onEdit(selectedSubscription)}
-              // ✅ pass handlers for inside-popup actions
               onToggleActive={handleToggleActiveInPopup}
               onDelete={handleDeleteInPopup}
             />
@@ -442,6 +597,51 @@ export default function Dashboard() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Most Expensive Subscriptions */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Most Expensive (Monthly)
+                </h3>
+              </div>
+              <div className="p-6">
+                {mostExpensiveSubscriptions.length === 0 ? (
+                  <p className="text-gray-500 text-sm">
+                    No active subscriptions
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {mostExpensiveSubscriptions.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                            {index + 1}
+                          </span>
+                          <div>
+                            <div className="font-medium text-sm">
+                              {item.service_name}
+                            </div>
+                            <div className="text-xs text-gray-500 capitalize">
+                              {item.billing_cycle}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-gray-900">
+                            SR{item.normalizedMonthlyCost.toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-500">/month</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Upcoming Renewals */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-100">
               <div className="p-6 border-b border-gray-100">
@@ -901,24 +1101,6 @@ function SubscriptionCard({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* {isActive ? (
-            <button
-              onClick={onCancel}
-              className="px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
-              title="Mark as inactive"
-            >
-              Cancel
-            </button>
-          ) : (
-            <button
-              onClick={onReactivate}
-              className="px-3 py-2 text-sm bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
-              title="Mark as active"
-            >
-              Reactivate
-            </button>
-          )} */}
-
           <button
             onClick={onShowDetails}
             className="px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"

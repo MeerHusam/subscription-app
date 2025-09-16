@@ -4,7 +4,6 @@ from .models import Subscription
 from django.utils import timezone
 from datetime import date, timedelta
 from calendar import monthrange
-
 def add_months(d: date, months: int) -> date:
     y = d.year + (d.month - 1 + months) // 12
     m = (d.month - 1 + months) % 12 + 1
@@ -27,7 +26,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "renewal_date"]
 
     def validate_cost(self, cost):
-        if cost is None or cost <= 0:
+        if cost is None or cost < 0:
                 raise serializers.ValidationError("Cost must be positive.")
         return cost
     
@@ -97,7 +96,58 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             return add_months(start, value)
         return start + timedelta(days=value)
 
-    # Runs when a new subscription is created
+    # how to advance by one billing interval 
+    def _advance_once(self, current: date, cycle: str, unit: str | None, value: int | None) -> date:
+        if cycle == "monthly":
+            return add_months(current, 1)
+        if cycle == "yearly":
+            return add_months(current, 12)
+        # custom
+        if unit == "months":
+            return add_months(current, int(value))
+        # unit == "days"
+        return current + timedelta(days=int(value))
+
+    # Compute the NEXT renewal strictly in the future 
+    def _compute_next_renewal(self, start: date, cycle: str,
+                              unit: str | None, value: int | None,
+                              has_trial: bool, trial_end: date | None) -> date:
+        today = timezone.now().date()
+
+        # first candidate 
+        if has_trial and trial_end:
+            candidate = trial_end + timedelta(days=1)  # first paid day after trial
+            # Determine the interval length for subsequent renewals
+            step_unit = unit if cycle == "custom" else ("months" if cycle in {"monthly", "yearly"} else unit)
+            step_value = (
+                1 if cycle == "monthly" else
+                12 if cycle == "yearly" else
+                int(value or 1)
+            )
+        else:
+            # first renewal from the start date
+            if cycle == "monthly":
+                candidate = add_months(start, 1)
+                step_unit, step_value = "months", 1
+            elif cycle == "yearly":
+                candidate = add_months(start, 12)
+                step_unit, step_value = "months", 12
+            else:
+                # custom
+                if unit == "months":
+                    candidate = add_months(start, int(value))
+                    step_unit, step_value = "months", int(value)
+                else:
+                    candidate = start + timedelta(days=int(value))
+                    step_unit, step_value = "days", int(value)
+
+        # keep advancing until it's in the future
+        while candidate <= today:
+            candidate = self._advance_once(candidate, cycle, step_unit, step_value)
+
+        return candidate
+
+    # --- UPDATED: use _compute_next_renewal in create/update ---
     def create(self, validated):
         start     = validated["start_date"]
         cycle     = validated["billing_cycle"]
@@ -106,16 +156,43 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         has_trial = validated.get("has_free_trial", False)
         trial_end = validated.get("trial_end_date")
 
-        validated["renewal_date"] = self._compute_renewal(start, cycle, unit, value, has_trial, trial_end)
+        validated["renewal_date"] = self._compute_next_renewal(
+            start, cycle, unit, value, has_trial, trial_end
+        )
         return super().create(validated)
 
     def update(self, instance, validated):
-        start = validated.get("start_date", instance.start_date)
-        cycle = validated.get("billing_cycle", instance.billing_cycle)
-        unit  = validated.get("custom_interval_unit",  instance.custom_interval_unit)
-        value = validated.get("custom_interval_value", instance.custom_interval_value)
+        start     = validated.get("start_date", instance.start_date)
+        cycle     = validated.get("billing_cycle", instance.billing_cycle)
+        unit      = validated.get("custom_interval_unit", instance.custom_interval_unit)
+        value     = validated.get("custom_interval_value", instance.custom_interval_value)
         has_trial = validated.get("has_free_trial", instance.has_free_trial)
         trial_end = validated.get("trial_end_date", instance.trial_end_date)
 
-        validated["renewal_date"] = self._compute_renewal(start, cycle, unit, value, has_trial, trial_end)
+        validated["renewal_date"] = self._compute_next_renewal(
+            start, cycle, unit, value, has_trial, trial_end
+        )
         return super().update(instance, validated)
+
+    # # Runs when a new subscription is created
+    # def create(self, validated):
+    #     start     = validated["start_date"]
+    #     cycle     = validated["billing_cycle"]
+    #     unit      = validated.get("custom_interval_unit")
+    #     value     = validated.get("custom_interval_value")
+    #     has_trial = validated.get("has_free_trial", False)
+    #     trial_end = validated.get("trial_end_date")
+
+    #     validated["renewal_date"] = self._compute_renewal(start, cycle, unit, value, has_trial, trial_end)
+    #     return super().create(validated)
+
+    # def update(self, instance, validated):
+    #     start = validated.get("start_date", instance.start_date)
+    #     cycle = validated.get("billing_cycle", instance.billing_cycle)
+    #     unit  = validated.get("custom_interval_unit",  instance.custom_interval_unit)
+    #     value = validated.get("custom_interval_value", instance.custom_interval_value)
+    #     has_trial = validated.get("has_free_trial", instance.has_free_trial)
+    #     trial_end = validated.get("trial_end_date", instance.trial_end_date)
+
+    #     validated["renewal_date"] = self._compute_renewal(start, cycle, unit, value, has_trial, trial_end)
+    #     return super().update(instance, validated)

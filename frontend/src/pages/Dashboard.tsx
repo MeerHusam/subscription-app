@@ -25,6 +25,8 @@ import {
   type BillingCycle,
   type IntervalUnit,
 } from "../api/subscriptions";
+import type { SubscriptionStats } from "../types/api";
+import { ApiError } from "../api/fetch";
 
 import Layout from "../components/Layout";
 import SubscriptionDetailPopup from "../components/SubscriptionDetailPopup";
@@ -92,7 +94,7 @@ const categories = [
 
 export default function Dashboard() {
   const [items, setItems] = useState<Subscription[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<SubscriptionStats | null>(null);
   const [form, setForm] = useState<FormState>({ ...emptyForm });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -124,10 +126,8 @@ export default function Dashboard() {
       case "yearly":
         return cost / 12;
       case "custom":
-        // Assuming we have custom_interval_unit and custom_interval_value
-        const intervalValue = (subscription as any).custom_interval_value || 1;
-        const intervalUnit =
-          (subscription as any).custom_interval_unit || "months";
+        const intervalValue = subscription.custom_interval_value || 1;
+        const intervalUnit = subscription.custom_interval_unit || "months";
         if (intervalUnit === "months") {
           return cost / intervalValue;
         } else if (intervalUnit === "days") {
@@ -205,8 +205,10 @@ export default function Dashboard() {
       ]);
       setItems(list);
       setStats(s);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load");
+    } catch (e) {
+      const message =
+        e instanceof ApiError ? e.message : "Failed to load subscriptions";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -231,14 +233,14 @@ export default function Dashboard() {
     return true;
   }, [form, cycleIsCustom, categoryIsCustom]);
 
-  async function onSubmit(e: any) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
 
     try {
-      const payload: any = {
+      const payload: Partial<Subscription> = {
         service_name: form.service_name,
         cost: Number(form.cost),
         billing_cycle: form.billing_cycle,
@@ -262,8 +264,10 @@ export default function Dashboard() {
       setShowForm(false);
       setEditingId(null);
       await refresh();
-    } catch (e: any) {
-      setError(e?.message || "Operation failed");
+    } catch (e) {
+      const message =
+        e instanceof ApiError ? e.message : "Operation failed";
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -278,8 +282,12 @@ export default function Dashboard() {
       if (selectedSubscription?.id === subscription.id) {
         setSelectedSubscription({ ...selectedSubscription, is_active: false });
       }
-    } catch (e: any) {
-      setError(e?.message || "Failed to cancel subscription");
+    } catch (e) {
+      const message =
+        e instanceof ApiError
+          ? e.message
+          : "Failed to cancel subscription";
+      setError(message);
     }
   }
 
@@ -290,8 +298,12 @@ export default function Dashboard() {
       if (selectedSubscription?.id === subscription.id) {
         setSelectedSubscription({ ...selectedSubscription, is_active: true });
       }
-    } catch (e: any) {
-      setError(e?.message || "Failed to reactivate subscription");
+    } catch (e) {
+      const message =
+        e instanceof ApiError
+          ? e.message
+          : "Failed to reactivate subscription";
+      setError(message);
     }
   }
 
@@ -300,8 +312,10 @@ export default function Dashboard() {
     try {
       await deleteSubscription(id);
       await refresh();
-    } catch (e: any) {
-      setError(e?.message || "Delete failed");
+    } catch (e) {
+      const message =
+        e instanceof ApiError ? e.message : "Delete failed";
+      setError(message);
     }
   }
 
@@ -311,9 +325,8 @@ export default function Dashboard() {
       service_name: subscription.service_name,
       cost: subscription.cost.toString(),
       billing_cycle: subscription.billing_cycle,
-      custom_interval_unit: (subscription as any).custom_interval_unit || "",
-      custom_interval_value:
-        (subscription as any).custom_interval_value?.toString() || "",
+      custom_interval_unit: subscription.custom_interval_unit || "",
+      custom_interval_value: subscription.custom_interval_value?.toString() || "",
       start_date: subscription.start_date,
       is_active: subscription.is_active,
       category: subscription.category,
@@ -349,9 +362,13 @@ export default function Dashboard() {
     try {
       const detailed = await getSubscriptionDetails(subscription.id);
       setSelectedSubscription(detailed);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to fetch subscription details:", error);
-      setError(error?.message || "Failed to load subscription details");
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Failed to load subscription details";
+      setError(message);
     } finally {
       setLoadingDetails(false);
     }
@@ -377,8 +394,10 @@ export default function Dashboard() {
       });
       // refresh lists/stats
       await refresh();
-    } catch (e: any) {
-      setError(e?.message || "Update failed");
+    } catch (e) {
+      const message =
+        e instanceof ApiError ? e.message : "Update failed";
+      setError(message);
     }
   };
 
@@ -390,8 +409,10 @@ export default function Dashboard() {
       await deleteSubscription(selectedSubscription.id);
       await refresh();
       handleCloseDetails();
-    } catch (e: any) {
-      setError(e?.message || "Delete failed");
+    } catch (e) {
+      const message =
+        e instanceof ApiError ? e.message : "Delete failed";
+      setError(message);
     }
   };
 

@@ -16,11 +16,6 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()  # to read .env file
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-unsafe-secret")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,12 +25,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-$wg$0gsxt7dv%l)%3b_x$4$y_5e3mr4%r9myx)_yl!l1-@18dl"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY must be set in environment variables or .env file")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 
 
 # Application definition
@@ -75,8 +70,11 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",  # keep default as fallback
 ]
 
-
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration - restrict to frontend origin only
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 TIME_ZONE = "Asia/Riyadh"
@@ -166,8 +164,6 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
-
-TIME_ZONE = "UTC"
 
 USE_I18N = True
 

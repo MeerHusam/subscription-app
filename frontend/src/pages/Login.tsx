@@ -11,13 +11,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function onSubmit(e: any) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
     try {
       const res = await login({ username, password });
       localStorage.setItem("access_token", res.access);
+      localStorage.setItem("refresh_token", res.refresh);
       navigate("/", { replace: true });
     } catch (e) {
       setErr("Login failed. Try username: 'demo', password: 'demo1234'");

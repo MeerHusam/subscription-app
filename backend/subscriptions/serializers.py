@@ -173,26 +173,3 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             start, cycle, unit, value, has_trial, trial_end
         )
         return super().update(instance, validated)
-
-    # # Runs when a new subscription is created
-    # def create(self, validated):
-    #     start     = validated["start_date"]
-    #     cycle     = validated["billing_cycle"]
-    #     unit      = validated.get("custom_interval_unit")
-    #     value     = validated.get("custom_interval_value")
-    #     has_trial = validated.get("has_free_trial", False)
-    #     trial_end = validated.get("trial_end_date")
-
-    #     validated["renewal_date"] = self._compute_renewal(start, cycle, unit, value, has_trial, trial_end)
-    #     return super().create(validated)
-
-    # def update(self, instance, validated):
-    #     start = validated.get("start_date", instance.start_date)
-    #     cycle = validated.get("billing_cycle", instance.billing_cycle)
-    #     unit  = validated.get("custom_interval_unit",  instance.custom_interval_unit)
-    #     value = validated.get("custom_interval_value", instance.custom_interval_value)
-    #     has_trial = validated.get("has_free_trial", instance.has_free_trial)
-    #     trial_end = validated.get("trial_end_date", instance.trial_end_date)
-
-    #     validated["renewal_date"] = self._compute_renewal(start, cycle, unit, value, has_trial, trial_end)
-    #     return super().update(instance, validated)

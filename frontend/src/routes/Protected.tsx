@@ -8,7 +8,7 @@ export default function Protected() {
   useEffect(() => {
     const validateToken = async () => {
       const token = localStorage.getItem("access_token");
-      
+
       if (!token) {
         setIsAuthenticated(false);
         return;

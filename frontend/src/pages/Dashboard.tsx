@@ -11,7 +11,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 import {
@@ -106,7 +105,7 @@ export default function Dashboard() {
   const [selectedSubscription, setSelectedSubscription] =
     useState<Subscription | null>(null);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
-  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [_, setLoadingDetails] = useState(false);
 
   const activeSubscriptions = useMemo(
     () => items.filter((s) => s.is_active),
@@ -252,7 +251,7 @@ export default function Dashboard() {
         trial_end_date: form.has_free_trial ? form.trial_end_date : null,
         notes: form.notes || "",
         ...(cycleIsCustom && {
-          custom_interval_unit: form.custom_interval_unit,
+          custom_interval_unit: form.custom_interval_unit as IntervalUnit,
           custom_interval_value: Number(form.custom_interval_value),
         }),
       };
@@ -510,7 +509,7 @@ export default function Dashboard() {
                       cy="50%"
                       outerRadius={80}
                       dataKey="value"
-                      label={({ name, value, percent }) =>
+                      label={({ name, value, percent }: any) =>
                         `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
                       }
                     >
@@ -847,7 +846,7 @@ export default function Dashboard() {
               {cycleIsCustom && (
                 <div className="grid grid-cols-2 gap-4">
                   <select
-                    value={form.custom_interval_unit || "months"}
+                    value={(form.custom_interval_unit || "months") as IntervalUnit}
                     onChange={(e) =>
                       setForm({
                         ...form,
@@ -1038,10 +1037,6 @@ function StatCard({ icon, label, value, trend, gradient = "" }: StatCardProps) {
 function SubscriptionCard({
   subscription,
   onShowDetails,
-  onCancel,
-  onReactivate,
-  onDelete,
-  onEdit,
   getCategoryStyle,
   getCategoryLabel,
 }: {

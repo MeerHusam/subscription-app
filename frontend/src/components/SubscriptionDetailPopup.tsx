@@ -40,7 +40,7 @@ const SubscriptionDetailPopup: React.FC<Props> = ({
 
   // NEW: confirm before toggle
   const handleConfirmToggle = () => {
-    const action = subscription.is_active ? "cancel (pause)" : "reactivate";
+
     const msg = subscription.is_active
       ? `Cancel “${subscription.service_name}”? You can reactivate it anytime.`
       : `Reactivate “${subscription.service_name}”?`;

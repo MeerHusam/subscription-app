@@ -1,4 +1,4 @@
-# Aajil Subscription App
+# Subscription App
 
 Track subscriptions, renewal dates, and basic analytics.
 
@@ -6,11 +6,11 @@ Track subscriptions, renewal dates, and basic analytics.
 
 ```bash
 # 1) Create a new workspace folder (optional)
-mkdir aajil && cd aajil
+mkdir subscription-app && cd subscription-app
 
 # 2) Clone the repo
-git clone (https://github.com/MeerHusam/aajil-subscription-app.git) aajil-subscription-app
-cd aajil-subscription-app
+git clone (https://github.com/MeerHusam/subscription-app.git) subscription-app
+cd subscription-app
 
 # (Alternative if you're already inside an empty folder)
 # git clone <REPO_URL> .

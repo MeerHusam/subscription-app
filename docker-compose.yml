@@ -1,3 +1,4 @@
+name: subscription-app
 version: '3.8'
 
 services:
@@ -6,7 +7,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=aajil_subscriptions
+      - POSTGRES_DB=subscriptions_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
@@ -24,7 +25,7 @@ services:
       - DJANGO_SECRET_KEY=dev_secret_key
       - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1] backend
       - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=aajil_subscriptions
+      - DB_NAME=subscriptions_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_HOST=db

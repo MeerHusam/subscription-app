@@ -94,7 +94,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Aajil Subscription API",
+    "TITLE": "Subscription API",
     "DESCRIPTION": "API for subscriptions, reminders, and auth",
     "VERSION": "0.1.0",
 }

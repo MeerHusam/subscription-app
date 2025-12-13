@@ -97,9 +97,12 @@ pipeline {
                 script {
                     // Change to frontend directory
                     dir(FRONTEND_PATH) {
-                        // Build the Docker image
+                        // Build the Docker image with API URL argument
                         sh """
-                            docker build -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} .
+                            docker build \
+                            --build-arg VITE_API_BASE_URL=http://localhost:8000/api \
+                            -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} .
+                            
                             docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} ${FRONTEND_IMAGE}:latest
                         """
                     }

@@ -14,7 +14,8 @@ services:
       - "5432:5432"
 
   backend:
-    build: ./backend
+    image: subscription-app-backend:latest
+    # build: ./backend  # Commented out - using Jenkins-built image
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
@@ -34,7 +35,8 @@ services:
       - db
 
   frontend:
-    build: ./frontend
+    image: subscription-app-frontend:latest
+    # build: ./frontend  # Commented out - using Jenkins-built image
     volumes:
       - ./frontend:/app
       - /app/node_modules

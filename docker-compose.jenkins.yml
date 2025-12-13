@@ -1,0 +1,125 @@
+# ============================================
+# DOCKER COMPOSE - Jenkins Configuration
+# ============================================
+# Purpose: Define how to build and run the Jenkins container
+# This file orchestrates the Jenkins setup
+
+# Project name (shows up in Docker Desktop)
+name: subscription-app-jenkins
+
+# Docker Compose file format version
+version: '3.8'
+
+# --------------------------------------------
+# SERVICES (Containers to Run)
+# --------------------------------------------
+services:
+  # Service name: 'jenkins'
+  # You can reference this as 'jenkins' in docker-compose commands
+  jenkins:
+    
+    # --------------------------------------------
+    # BUILD CONFIGURATION
+    # --------------------------------------------
+    # Tell Docker Compose to BUILD an image (not pull from registry)
+    build:
+      context: ./jenkins          # Look in the 'jenkins' directory
+      dockerfile: Dockerfile       # Use the 'Dockerfile' we just created
+    
+    # --------------------------------------------
+    # CONTAINER CONFIGURATION
+    # --------------------------------------------
+    container_name: jenkins-server  # Name of the running container
+    
+    # Run as root user (needed to access Docker socket)
+    # Normally not recommended, but required for Docker-in-Docker
+    privileged: true
+    user: root
+    
+    # --------------------------------------------
+    # PORT MAPPING
+    # --------------------------------------------
+    # Format: "HOST_PORT:CONTAINER_PORT"
+    # This makes Jenkins accessible from your Mac
+    ports:
+      - "8080:8080"    # Jenkins web UI
+                       # Access at: http://localhost:8080
+      
+      - "50000:50000"  # Jenkins agent communication port
+                       # Used if you add additional Jenkins agents
+    
+    # --------------------------------------------
+    # VOLUMES (File/Directory Mounting)
+    # --------------------------------------------
+    # This is the CRITICAL part for Docker-in-Docker!
+    volumes:
+      # 1. DOCKER SOCKET MOUNT (Docker-in-Docker)
+      # Mount the host's Docker socket into the container
+      # This allows Jenkins to use your Mac's Docker to build images
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+      # 2. JENKINS DATA PERSISTENCE
+      # Store Jenkins configuration, jobs, plugins, etc.
+      # This data persists even if you stop/remove the container
+      - jenkins_data:/var/jenkins_home
+      
+      # 3. PROJECT CODE ACCESS
+      # Mount your project directory into the container
+      # Jenkins can access your code at /workspace
+      - ./:/workspace
+    
+    # --------------------------------------------
+    # ENVIRONMENT VARIABLES
+    # --------------------------------------------
+    # Configuration passed to Jenkins at runtime
+    environment:
+      # Tell Jenkins where to find Docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      
+      # Jenkins-specific options
+      # --prefix=/ means Jenkins runs at root path (http://localhost:8080/)
+      - JENKINS_OPTS=--prefix=/
+    
+    # --------------------------------------------
+    # RESTART POLICY
+    # --------------------------------------------
+    # 'unless-stopped' means:
+    # - Restart if it crashes
+    # - Don't restart if you manually stopped it
+    # - Start automatically when Docker Desktop starts
+    restart: unless-stopped
+    
+    # --------------------------------------------
+    # NETWORKING
+    # --------------------------------------------
+    # Connect to a custom network (defined below)
+    networks:
+      - jenkins-network
+
+# --------------------------------------------
+# NETWORKS
+# --------------------------------------------
+# Create a custom network for Jenkins
+# This isolates Jenkins networking from other containers
+networks:
+  jenkins-network:
+    driver: bridge  # Standard Docker network type
+
+# --------------------------------------------
+# VOLUMES
+# --------------------------------------------
+# Define named volumes for data persistence
+volumes:
+  jenkins_data:
+    driver: local  # Store on local disk
+    # This volume persists:
+    # - Jenkins configuration
+    # - Installed plugins
+    # - Job history
+    # - Build logs
+    # - User accounts
+    # 
+    # Location on Mac (managed by Docker):
+    # ~/Library/Containers/com.docker.docker/Data/...
+    # 
+    # You don't access this directly - Docker manages it

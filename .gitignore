@@ -53,3 +53,9 @@ htmlcov/
 .pytest_cache/
 .tox/
 
+# Jenkins
+# Exclude Jenkins runtime data (Docker volumes, logs, etc.)
+# But keep configuration files (Dockerfile, docker-compose, Jenkinsfile)
+jenkins_data/
+.jenkins/
+*.jenkins/

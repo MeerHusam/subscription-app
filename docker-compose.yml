@@ -4,6 +4,7 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
+    container_name: subscription-app-db-${ENV_NAME:-dev}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -11,16 +12,17 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
 
   backend:
     image: subscription-app-backend:latest
+    container_name: subscription-app-backend-${ENV_NAME:-dev}
     # build: ./backend  # Commented out - using Jenkins-built image
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
       - DEBUG=1
       - DJANGO_SECRET_KEY=dev_secret_key
@@ -36,12 +38,13 @@ services:
 
   frontend:
     image: subscription-app-frontend:latest
+    container_name: subscription-app-frontend-${ENV_NAME:-dev}
     # build: ./frontend  # Commented out - using Jenkins-built image
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       - backend
 

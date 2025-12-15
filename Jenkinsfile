@@ -24,6 +24,8 @@ pipeline {
     // Define variables used throughout the pipeline
     // These make it easy to change names/settings in one place
     environment {
+        // App Name and Images
+        COMPOSE_PROJECT_NAME = 'subscription-app'
         // Docker image names for your app
         BACKEND_IMAGE = 'subscription-app-backend'
         FRONTEND_IMAGE = 'subscription-app-frontend'
@@ -65,50 +67,51 @@ pipeline {
         // STAGE 2: BUILD BACKEND
         // ========================================
         // Build the Django backend Docker image
+        // ========================================
+        // STAGE 2: BUILD BACKEND
+        // ========================================
         stage('Build Backend') {
             steps {
-                echo '🔨 Building Django backend Docker image...'
-                
                 script {
-                    // Change to backend directory
+                    echo "🔨 Building Backend..."
                     dir(BACKEND_PATH) {
-                        // Build the Docker image
-                        // -t tags the image with a name
-                        // BUILD_NUMBER is a Jenkins variable (1, 2, 3, ...)
-                        sh """
-                            docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} .
-                            docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} ${BACKEND_IMAGE}:latest
-                        """
+                        sh "docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ."
                     }
                 }
-                
-                echo "✅ Backend image built: ${BACKEND_IMAGE}:${BUILD_NUMBER}"
             }
         }
-        
+
         // ========================================
-        // STAGE 3: BUILD FRONTEND
+        // STAGE 3: DEPLOY DEVELOPMENT
         // ========================================
-        // Build the React frontend Docker image
-        stage('Build Frontend') {
+        stage('Deploy Dev') {
+            environment {
+                // Dev Environment Config
+                ENV_NAME = 'dev'
+                BACKEND_PORT = '8001'
+                FRONTEND_PORT = '5001'
+                DB_PORT = '5433'
+                IMAGE_TAG = "${BUILD_NUMBER}"
+            }
             steps {
-                echo '🔨 Building React frontend Docker image...'
-                
+                echo "🚀 Deploying to Development (simulated)..."
                 script {
-                    // Change to frontend directory
+                    // 1. Build Frontend specifically for DEV (baking in the Dev backend URL)
+                    echo "🔨 Building Frontend for Dev..."
                     dir(FRONTEND_PATH) {
-                        // Build the Docker image with API URL argument
-                        sh """
-                            docker build \
-                            --build-arg VITE_API_BASE_URL=http://localhost:8000/api \
-                            -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} .
-                            
-                            docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} ${FRONTEND_IMAGE}:latest
-                        """
+                        sh "docker build --build-arg VITE_API_BASE_URL=http://localhost:${BACKEND_PORT}/api -t ${FRONTEND_IMAGE}:${BUILD_NUMBER}-dev ."
+                    }
+
+                    // 2. Deploy using Docker Compose
+                    // We must tell compose which project name (-p) to use so they don't conflict
+                    withEnv(["IMAGE_TAG=${BUILD_NUMBER}"]) {
+                         // We will re-tag our custom dev image to what compose expects for this specific run context
+                         sh "docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER}-dev ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+                         
+                         sh "docker compose -p ${COMPOSE_PROJECT_NAME}-${ENV_NAME} up -d"
                     }
                 }
-                
-                echo "✅ Frontend image built: ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+                echo "✅ Dev successfully deployed at http://localhost:${FRONTEND_PORT}"
             }
         }
         

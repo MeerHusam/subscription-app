@@ -19,8 +19,8 @@ services:
     container_name: subscription-app-backend-${ENV_NAME:-dev}
     # build: ./backend  # Commented out - using Jenkins-built image
     command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./backend:/app
+    # volumes:
+    #   - ./backend:/app
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
@@ -40,9 +40,9 @@ services:
     image: subscription-app-frontend:latest
     container_name: subscription-app-frontend-${ENV_NAME:-dev}
     # build: ./frontend  # Commented out - using Jenkins-built image
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
     ports:
       - "${FRONTEND_PORT:-5173}:80"
     depends_on:

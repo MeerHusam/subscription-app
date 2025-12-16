@@ -169,7 +169,6 @@ pipeline {
                     echo '⏭️  Backend tests skipped - configure when ready'
                 }
             }
-        }
         
         // ========================================
         // STAGE 5: TEST FRONTEND (Optional)

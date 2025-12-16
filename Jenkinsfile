@@ -154,6 +154,7 @@ pipeline {
                 echo "✅ QA successfully deployed at http://localhost:${FRONTEND_PORT}"
             }
         }
+        stage('Test Backend') {
             steps {
                 echo '🧪 Running backend tests...'
                 
@@ -169,7 +170,7 @@ pipeline {
                     echo '⏭️  Backend tests skipped - configure when ready'
                 }
             }
-        
+        }
         // ========================================
         // STAGE 5: TEST FRONTEND (Optional)
         // ========================================

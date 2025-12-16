@@ -2,7 +2,9 @@
 FROM node:20-alpine as build
 
 # Accept API URL as build argument
-ARG VITE_API_BASE_URL=http://localhost:8000/api
+ARG VITE_API_BASE_URL=/api
+# Accept Environment Name (Dev/QA/Prod)
+ARG VITE_ENV_NAME=Local
 
 WORKDIR /app
 
@@ -13,8 +15,10 @@ COPY . .
 
 # Set environment variable for Vite build
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_ENV_NAME=$VITE_ENV_NAME
 
-RUN npm run build
+# Build with explicit environment variables (Vite requires this)
+RUN VITE_API_BASE_URL=$VITE_API_BASE_URL VITE_ENV_NAME=$VITE_ENV_NAME npm run build
 
 # Production stage
 FROM nginx:alpine

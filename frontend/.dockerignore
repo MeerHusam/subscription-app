@@ -1,0 +1,11 @@
+# Ignore local environment files
+.env
+.env.local
+.env.*.local
+
+# Ignore node_modules (already in .gitignore but good practice)
+node_modules
+
+# Ignore development files
+.DS_Store
+*.log

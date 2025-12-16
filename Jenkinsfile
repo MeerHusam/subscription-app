@@ -116,11 +116,44 @@ pipeline {
         }
         
         // ========================================
-        // STAGE 4: TEST BACKEND (Optional)
+        // STAGE 4: PROMOTE TO QA
         // ========================================
-        // Run Django tests
-        // Currently skipped - uncomment when you have tests
-        stage('Test Backend') {
+        stage('Promote to QA') {
+            steps {
+                input message: 'Promote build to QA Environment?', ok: 'Promote'
+            }
+        }
+
+        // ========================================
+        // STAGE 5: DEPLOY QA
+        // ========================================
+        stage('Deploy QA') {
+            environment {
+                // QA Environment Config
+                ENV_NAME = 'qa'
+                BACKEND_PORT = '8002'
+                FRONTEND_PORT = '5002'
+                DB_PORT = '5434'
+                IMAGE_TAG = "${BUILD_NUMBER}"
+            }
+            steps {
+                echo "🚀 Deploying to QA..."
+                script {
+                    // 1. Build Frontend specifically for QA (baking in the QA backend URL)
+                    echo "🔨 Building Frontend for QA..."
+                    dir(FRONTEND_PATH) {
+                        sh "docker build --build-arg VITE_API_BASE_URL=http://localhost:${BACKEND_PORT}/api -t ${FRONTEND_IMAGE}:${BUILD_NUMBER}-qa ."
+                    }
+
+                    // 2. Deploy using Docker Compose
+                    withEnv(["IMAGE_TAG=${BUILD_NUMBER}"]) {
+                         sh "docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER}-qa ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+                         sh "docker compose -p ${COMPOSE_PROJECT_NAME}-${ENV_NAME} up -d"
+                    }
+                }
+                echo "✅ QA successfully deployed at http://localhost:${FRONTEND_PORT}"
+            }
+        }
             steps {
                 echo '🧪 Running backend tests...'
                 

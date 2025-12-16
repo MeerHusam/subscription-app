@@ -195,7 +195,44 @@ pipeline {
         }
         
         // ========================================
-        // STAGE 6: PUSH TO REGISTRY (Optional)
+        // STAGE 6: PROMOTE TO PRODUCTION
+        // ========================================
+        stage('Promote to Production') {
+            steps {
+                input message: 'Promote build to PRODUCTION?', ok: 'Deploy to Prod'
+            }
+        }
+
+        // ========================================
+        // STAGE 7: DEPLOY PRODUCTION
+        // ========================================
+        stage('Deploy Production') {
+            environment {
+                // Production Environment Config
+                ENV_NAME = 'prod'
+                BACKEND_PORT = '8003'
+                FRONTEND_PORT = '5003'
+                DB_PORT = '5435'
+                IMAGE_TAG = "${BUILD_NUMBER}"
+            }
+            steps {
+                echo "🚀 Deploying to Production..."
+                script {
+                    dir(FRONTEND_PATH) {
+                        sh "docker build --build-arg VITE_API_BASE_URL=http://localhost:${BACKEND_PORT}/api -t ${FRONTEND_IMAGE}:${BUILD_NUMBER}-prod ."
+                    }
+                     // Retag for consistency with docker-compose expectation
+                    withEnv(["IMAGE_TAG=${BUILD_NUMBER}"]) {
+                         sh "docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER}-prod ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+                         sh "docker compose -p ${COMPOSE_PROJECT_NAME}-${ENV_NAME} up -d"
+                    }
+                }
+                echo "✅ Production successfully deployed at http://localhost:${FRONTEND_PORT}"
+            }
+        }
+        
+        // ========================================
+        // STAGE 8: PUSH TO REGISTRY (Optional)
         // ========================================
         // Push images to Docker Hub or private registry
         // Only runs on 'main' branch

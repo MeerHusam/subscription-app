@@ -1,153 +1,87 @@
 # Subscription App
 
-Track subscriptions, renewal dates, and basic analytics.
+**Author:** Meer Husamuddin
+**Repository:** [Link to Repo](https://github.com/MeerHusam/subscription-app.git)
 
-## Get the code
+This project is a full-stack web application designed to track subscriptions, renewal dates, and basic analytics. It includes a comprehensive **Jenkins CI/CD pipeline** for automated testing and deployment.
 
-```bash
-# 1) Create a new workspace folder (optional)
-mkdir subscription-app && cd subscription-app
-
-# 2) Clone the repo
-git clone (https://github.com/MeerHusam/subscription-app.git) subscription-app
-cd subscription-app
-
-# (Alternative if you're already inside an empty folder)
-# git clone <REPO_URL> .
-```
 ---
 
 ## Tech Stack
 
-- **Backend:** Django + Django REST Framework (SQLite for local dev)
+- **Backend:** Django + Django REST Framework (PostgreSQL in Docker)
 - **Frontend:** React + Vite + Tailwind CSS
+- **CI/CD:** Jenkins, Docker, Nginx
 
 ---
 
-## Quickstart
+## App Quickstart (Local Development)
 
-Open **two terminals**:
+To run the application locally without Jenkins:
 
-**Terminal 1 – Backend**
-
+**1. Backend**
 ```bash
 cd backend
 python3 -m venv venv
-source venv/bin/activate            # On Windows: venv\Scripts\activate
+source venv/bin/activate            # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# create a .env file (see example below), then:
 python manage.py migrate
-python manage.py runserver           # serves at http://localhost:8000
+python manage.py runserver           # http://localhost:8000
 ```
 
-**Terminal 2 – Frontend**
-
+**2. Frontend**
 ```bash
 cd frontend
 npm install
-# create a .env file (see example below), then:
-npm run dev                          # serves at http://localhost:5173
-```
-
-Open the app at **[http://localhost:5173](http://localhost:5173)**.
-
----
-
-## Backend-Django(Detailed)
-
-### 1) Prereqs
-
-- Python 3.10+ recommended
-- pip
-
-### 2) Setup & run
-
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Create **`backend/.env`** (minimal example):
-The content will be sent in the email
-
-Migrate and start the server:
-
-```bash
-python manage.py migrate
-python manage.py runserver
-```
-
-> API base (by default): `http://localhost:8000/api`
-
----
-
-## Frontend-React + Vite + Tailwind(Detailed)
-
-### 1) Prereqs
-
-- Node 18+ (or 20+)
-- npm (or pnpm/yarn if you prefer)
-
-### 2) Setup & run
-
-```bash
-cd frontend
-npm install
-```
-
-Create **`frontend/.env`** (Vite uses `VITE_*` variables):
-
-```
-VITE_API_BASE_URL=http://localhost:8000/api
-```
-
-Start the dev server:
-
-```bash
-npm run dev
-```
-
-Open **[http://localhost:5173](http://localhost:5173)**.
-
----
-
-## Project Structure (high-level)
-
-```
-.
-├─ backend/
-│  ├─ core/
-│  ├─ subscriptions/
-│  ├─ manage.py
-│  ├─ requirements.txt
-│  └─ .env (local)
-├─ frontend/
-│  └─ (React + Vite + Tailwind app)
-└─ README.md
+npm run dev                          # http://localhost:5173
 ```
 
 ---
 
-## Common Issues
+## Jenkins CI/CD Documentation
 
-- **CORS error in browser:**
-  Ensure `CORS_ALLOWED_ORIGINS=http://localhost:5173` is present in `backend/.env` and `django-cors-headers` is installed/configured. Restart the backend.
+This project features a fully automated pipeline. The `docs/` folder contains detailed guides.
 
-- **Port already in use:**
+### Documentation Files
 
-  - Change Vite port: `npm run dev -- --port 5174`
-  - Change Django port: `python manage.py runserver 8001`
+#### [`docs/JENKINS_QUICKSTART.md`](docs/JENKINS_QUICKSTART.md)
+**Start here!** Step-by-step guide to get Jenkins up and running.
+- Setting up Jenkins used `docker-compose.jenkins.yml`
+- Getting the admin password
+- Running your first pipeline build
 
-- **DB/model change errors:**
-
-  ```bash
-  python manage.py makemigrations
-  python manage.py migrate
-  ```
+#### [`docs/JENKINS_REFERENCE.md`](docs/JENKINS_REFERENCE.md)
+**Complete reference guide** with detailed explanations and diagrams.
+- CI/CD Concepts & Docker-in-Docker
+- Visual diagrams of the workflow
+- Troubleshooting guide
 
 ---
 
-That’s it, start the backend on **:8000**, the frontend on **:5173**.
+## Project Configuration Files
+
+- **`jenkins/Dockerfile`** - Custom Jenkins image definition
+- **`docker-compose.jenkins.yml`** - Jenkins container configuration
+- **`Jenkinsfile`** - The Pipeline definition (Groovy script)
+
+---
+
+## Running the Pipeline
+
+1. **Start Jenkins:**
+   ```bash
+   docker-compose -f docker-compose.jenkins.yml up -d
+   ```
+2. **Access UI:** Open `http://localhost:8080`
+3. **Run Pipeline:**
+   - Go to `subscription-app-pipeline`
+   - Click **Build Now**
+   - Approve deployments to QA/Prod when prompted.
+
+---
+
+## Recommended Reading Order
+
+1. **First time setup:** Read `docs/JENKINS_QUICKSTART.md`
+2. **Understanding concepts:** Read `docs/JENKINS_REFERENCE.md`
+3. **Deep Dive:** Read **[`README-Pipeline.md`](README-Pipeline.md)** for the full assignment report.

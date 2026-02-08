@@ -102,7 +102,7 @@ Copy this password!
 6. For **Definition**, select: **Pipeline script from SCM**
 7. For **SCM**, select: **Git**
 8. For **Repository URL**, enter: `https://github.com/MeerHusam/subscription-app.git`
-9. For **Branch Specifier**, enter: `*/main`
+9. For **Branch Specifier**, enter: `*/dev`
 10. For **Script Path**, enter: `Jenkinsfile`
 11. Click **Save**
 

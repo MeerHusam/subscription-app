@@ -113,7 +113,7 @@ Here are some of the ideas I wished to implement:
 
 - User receives a verification email when registering.
 - User receives an email 7 days before a renewal date as a reminder, and another email a day before.
-- User gives access to their email inbox, and we retrieve users’ subscription information by parsing their inbox for keywords such as “subscription,” “payments,” etc.
+- User gives access to their email inbox, and I retrieve users’ subscription information by parsing their inbox for keywords such as “subscription,” “payments,” etc.
 - Current charts include a pie chart (for different billing cycles) and a bar chart (for different categories). I wanted to add a line graph for monthly costs over the past months. I still had to do the backend for it as well as the frontend.
 - Add different currencies, and auto-convert them to the user’s desired currency.
 - Add a notification box on the dashboard which shows subscriptions added, subscriptions deleted, future renewals, etc.

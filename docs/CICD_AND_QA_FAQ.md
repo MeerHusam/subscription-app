@@ -1,6 +1,6 @@
 # CI/CD, Jenkins, and QA: A Clear End-to-End Mental Model
 
-This guide establishes the core mental models for our CI/CD pipeline, artifact-based promotion, and the role of QA.
+This guide establishes the core mental models for this CI/CD pipeline, artifact-based promotion, and the role of QA.
 
 ---
 
@@ -28,7 +28,7 @@ An **Artifact** is the immutable output of a build. In our case, it is the Docke
 
 *   **Example:** `backend:137`, `frontend:137`
 
-**The Golden Rule:** Once an artifact is built, it never changes. We do not rebuild code for QA or Production. We move the *same exact bits* from environment to environment.
+**The Golden Rule:** Once an artifact is built, it never changes. I do not rebuild code for QA or Production. I move the *same exact bits* from environment to environment.
 
 ---
 

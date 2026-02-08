@@ -59,3 +59,8 @@ htmlcov/
 jenkins_data/
 .jenkins/
 *.jenkins/
+
+*.docx
+
+# Private Documentation
+docs/Presentation_Outline.md

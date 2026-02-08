@@ -14,7 +14,7 @@
 **What is Jenkins CI/CD?**
 Jenkins automates the process of building Docker images for your application whenever you push code to Git. Instead of manually running `docker build` every time you make changes, Jenkins does it automatically.
 
-**What We're Building:**
+**Project Goals:**
 A Jenkins server running in Docker that watches your Git repository and automatically builds new versions of your backend and frontend Docker images.
 
 **The Process:**
@@ -35,7 +35,7 @@ Think of it as an automated assembly line for your code:
 - **Continuous Integration (CI):** Automatically build and test code when changes are made
 - **Continuous Deployment (CD):** Automatically deploy the built code to servers
 
-**Why do we need it?**
+**Why use it?**
 - ✅ Saves time (no manual building)
 - ✅ Consistency (same build process every time)
 - ✅ Version tracking (every build is numbered)
@@ -45,8 +45,8 @@ Think of it as an automated assembly line for your code:
 ### What is Docker-in-Docker (DinD)?
 
 **The Challenge:**
-- We want Jenkins to run in a Docker container (for isolation and portability)
-- We want Jenkins to BUILD Docker images (for our backend and frontend)
+- I want Jenkins to run in a Docker container (for isolation and portability)
+- I want Jenkins to BUILD Docker images (for the backend and frontend)
 - Problem: A container normally can't build other containers
 
 **The Solution:**

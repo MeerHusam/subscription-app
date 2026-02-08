@@ -1,8 +1,8 @@
-# CI/CD Lessons Learned
+# CI/CD Lessons Learned by Meer Husam
 
 This document captures key CI/CD and deployment lessons learned while building and debugging the multi-environment (Dev / QA / Prod) Docker + Jenkins setup for this project.
 
-The goal is to document **why things broke**, **how we figured it out**, **how they were fixed**, and **how to avoid similar issues in the future**.
+The goal is to document **why things broke**, **how I figured it out**, **how they were fixed**, and **how to avoid similar issues in the future**.
 
 ---
 
@@ -65,13 +65,13 @@ docker compose up -d --force-recreate
 
 ---
 
-## 3. How We Identified the Root Cause
+## 3. How I Identified the Root Cause
 
 This issue was diagnosed by **verifying what image was actually running**, not just what Jenkins claimed to have built.
 
 ### Step 1: Check which image the container was running
 
-We inspected the running frontend container:
+I inspected the running frontend container:
 
 ```bash
 docker inspect subscription-app-frontend-dev --format '{{.Image}}'
@@ -81,7 +81,7 @@ This returned an image digest corresponding to an image that was **several days 
 
 ### Step 2: Compare against locally available images
 
-We then listed all frontend images:
+I then listed all frontend images:
 
 ```bash
 docker images subscription-app-frontend
@@ -96,7 +96,7 @@ Despite the new image existing locally, Docker Compose was still running the old
 
 ### Step 3: Confirm stale frontend assets
 
-To remove any doubt, we inspected the built frontend assets inside the running container:
+To remove any doubt, I inspected the built frontend assets inside the running container:
 
 ```bash
 docker exec -it subscription-app-frontend-dev \

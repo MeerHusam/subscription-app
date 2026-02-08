@@ -31,9 +31,9 @@ graph LR
 
     subgraph Docker Host
         direction TB
-        DevEnv[Dev Environment<br>FE: :5001 | BE: :8001]
-        QAEnv[QA Environment<br>FE: :5002 | BE: :8002]
-        ProdEnv[Prod Environment<br>FE: :5003 | BE: :8003]
+        DevEnv["Dev Environment<br>FE: :5001 | BE: :8001"]
+        QAEnv["QA Environment<br>FE: :5002 | BE: :8002"]
+        ProdEnv["Prod Environment<br>FE: :5003 | BE: :8003"]
     end
 
     DeployDev -.-> DevEnv
@@ -106,6 +106,7 @@ The pipeline is defined in `Jenkinsfile` and follows a sequential promotion stra
 **4. Production Environment (Red Badge):**
 ![alt text](docs/images/image-5.png)
 ![alt text](docs/images/image-9.png)
+
 ---
 
 ## 6. Challenges & Solutions
